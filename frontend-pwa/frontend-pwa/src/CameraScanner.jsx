@@ -1,18 +1,20 @@
-import React, { useState, useRef } from "react";
-import Webcam from "react-webcam";
-import { uploadImageAndExtractText } from "./api";
+import React, { useState, useRef } from 'react';
+import Webcam from 'react-webcam';
+import { uploadImageAndExtractText } from './api';
 
 export default function CameraScanner() {
   const webcamRef = useRef(null);
-  const [extractedText, setExtractedText] = useState("");
   const [loading, setLoading] = useState(false);
+  const [extractedText, setExtractedText] = useState("");
 
-  const captureAndScan = async () => {
+  const capture = async () => {
     const imageSrc = webcamRef.current.getScreenshot();
+    if (!imageSrc) return;
+
     setLoading(true);
     try {
-      const result = await uploadImageAndExtractText(imageSrc);
-      setExtractedText(result.extracted_texts.productName || "No text found");
+      const response = await uploadImageAndExtractText(imageSrc);
+      setExtractedText(response.extracted_texts.productName);
     } catch (error) {
       console.error("Error extracting text:", error);
     }
@@ -20,22 +22,24 @@ export default function CameraScanner() {
   };
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+      <h1 className="text-2xl font-bold mb-4">Dog Food Scanner</h1>
       <Webcam
+        audio={false}
         ref={webcamRef}
         screenshotFormat="image/jpeg"
-        className="rounded-lg shadow-lg mb-4"
-        width={300}
+        className="rounded-lg shadow-md"
       />
       <button
-        onClick={captureAndScan}
-        className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+        onClick={capture}
+        disabled={loading}
+        className="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
       >
         {loading ? "Scanning..." : "Capture and Scan"}
       </button>
       {extractedText && (
         <div className="mt-4 bg-white p-4 rounded-lg shadow">
-          <p className="font-semibold">Extracted Text:</p>
+          <p><strong>Extracted Text:</strong></p>
           <p>{extractedText}</p>
         </div>
       )}
