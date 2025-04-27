@@ -1,6 +1,32 @@
-# 🐶 Dog Food Scanner Project
+# 🦴 Dog Food Scanner - Backend API
 
-Mobile-first live OCR app to scan dog food package information, confirm details, and save to Firestore, integrated with Wix for user points.
+Welcome to the **Dog Food Scanner** API!
+
+This FastAPI backend powers the mobile scanning app, allowing users to:
+- OCR scan dog food packages 📦
+- Save products to Firestore 🗃️
+- Search products in the database 🔍
+
+---
+
+## 🚀 API Endpoints
+
+| Method | Endpoint | Description |
+|:------|:---------|:------------|
+| GET    | `/`             | Health check ("API is live") |
+| POST   | `/upload/`       | Upload an image URL and extract text using Google Vision OCR |
+| POST   | `/add-product/`  | Save extracted product data to Firestore |
+| GET    | `/search-products/` | Search for products by name |
+
+---
+
+## 🛠️ Technologies Used
+
+- [FastAPI](https://fastapi.tiangolo.com/)
+- [Firebase Admin SDK](https://firebase.google.com/docs/admin/setup)
+- [Google Cloud Vision API](https://cloud.google.com/vision)
+- [Render.com](https://render.com) for deployment
+- [Firestore](https://firebase.google.com/products/firestore) for database
 
 ---
 
@@ -9,54 +35,30 @@ Mobile-first live OCR app to scan dog food package information, confirm details,
 
 ---
 
-## 🛠 Technologies Used
+## 🌍 Deployment
 
-- Frontend: HTML, CSS, JavaScript, Tesseract.js
-- Backend: FastAPI (Python)
-- Database: Google Firestore
-- Hosting: Netlify / Vercel for frontend
-- Hosting: Render.com for backend
-- Authentication: Wix Members Area
-- Points System: Wix Database + API
+The app is deployed on Render:
+
+> Production URL: [https://dog-food-backend.onrender.com](https://dog-food-backend.onrender.com)
+
+API Docs automatically available at:
+
+> [https://dog-food-backend.onrender.com/docs](https://dog-food-backend.onrender.com/docs)
 
 ---
-## 🚀 How to Run Locally
 
-### Frontend (ocr-webapp)
+## 📋 Environment Variables
 
-```bash
-cd ocr-webapp
-# Simply open index.html in your browser
+| Variable | Purpose |
+|:---------|:--------|
+| `GOOGLE_APPLICATION_CREDENTIALS_JSON` | JSON contents of the Google Cloud service account (for Firestore + Vision) |
 
-Backend
-cd backend-fastapi
-python -m venv venv
-source venv/bin/activate   # Mac/Linux
-# or
-venv\Scripts\activate.bat  # Windows
+---
 
-pip install -r requirements.txt
-uvicorn main:app --reload
+## 📜 License
 
-📋 Deployment Notes
-Render (backend)
-Root Directory: backend-fastapi/
+MIT License — free for personal or commercial use.
 
-Build Command: pip install -r requirements.txt
+---
 
-Start Command: uvicorn main:app --host=0.0.0.0 --port=10000
-
-Netlify/Vercel (frontend)
-Deploy the ocr-webapp folder
-
-No build command needed (pure HTML/CSS/JS)
-
- Future Plans
-Live OCR improvement
-
-Mobile PWA app
-
-Admin dashboard
-
-🤝 Author
-Made with ❤️ by Cognitail Team
+### 🔥 Built with ❤️ to make dogs happier!
