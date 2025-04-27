@@ -1,7 +1,7 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import requests
+import base64
 import os
 import json
 import firebase_admin
@@ -36,19 +36,17 @@ def initialize_services():
 
     return db, vision_client
 
-# Startup
 @app.on_event("startup")
 async def startup_event():
     global db, vision_client
     db, vision_client = initialize_services()
     print("✅ Services initialized")
 
-# Shutdown
 @app.on_event("shutdown")
 async def shutdown_event():
     print("🛑 Shutting down...")
 
-# CORS middleware
+# CORS settings
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -57,7 +55,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Pydantic Models
+# Pydantic models
+class Base64ImageRequest(BaseModel):
+    base64Image: str
+
 class ProductData(BaseModel):
     productName: str
     brandName: str = ""
@@ -67,13 +68,14 @@ class ProductData(BaseModel):
 # Routes
 @app.get("/")
 async def root():
-    return {"message": "API is live 🚀"}
+    return {"message": "API is live"}
 
-# Upload image file for OCR
 @app.post("/upload/")
-async def upload_image_file(file: UploadFile = File(...)):
+async def upload_image(data: Base64ImageRequest):
     try:
-        content = await file.read()
+        base64_str = data.base64Image
+        content = base64.b64decode(base64_str.split(",")[-1])  # Remove "data:image/jpeg;base64," part if exists
+
         full_text = extract_text_from_image(content, vision_client)
 
         extracted_texts = {
@@ -86,10 +88,9 @@ async def upload_image_file(file: UploadFile = File(...)):
         return {"extracted_texts": extracted_texts}
 
     except Exception as e:
-        print("Error in upload_image_file:", str(e))
+        print("Error in upload_image:", str(e))
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-# Add a product to Firestore
 @app.post("/add-product/")
 async def add_product(data: dict):
     try:
@@ -99,7 +100,6 @@ async def add_product(data: dict):
         print("Error saving product:", str(e))
         raise HTTPException(status_code=500, detail="Failed to save product")
 
-# Search products
 @app.get("/search-products/")
 async def search_products_endpoint(query: str):
     try:
