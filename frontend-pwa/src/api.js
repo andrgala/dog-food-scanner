@@ -1,6 +1,6 @@
 import axios from "axios";
 
-// Your backend URL
+// Your backend API URL
 const BASE_URL = "https://dog-food-backend.onrender.com";
 
 export async function uploadImageAndExtractText(base64Image) {
