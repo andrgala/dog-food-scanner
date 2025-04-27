@@ -1,56 +1,16 @@
-import React, { useState, useRef } from "react";
-import Webcam from "react-webcam";
-import { uploadImageAndExtractText } from "./api";
+import axios from "axios";
 
-export default function CameraScanner() {
-  const webcamRef = useRef(null);
-  const [extractedText, setExtractedText] = useState("");
-  const [loading, setLoading] = useState(false);
+// Your backend API URL
+const BASE_URL = "https://dog-food-backend.onrender.com";
 
-  const captureAndScan = async () => {
-    const imageSrc = webcamRef.current.getScreenshot();
-    setLoading(true);
-    try {
-      const result = await uploadImageAndExtractText(imageSrc);
-      setExtractedText(result.extracted_texts.productName || "No text found");
-    } catch (error) {
-      console.error("Error extracting text:", error);
-    }
-    setLoading(false);
-  };
-
-  return (
-    <div className="flex flex-col items-center">
-      <Webcam
-        ref={webcamRef}
-        screenshotFormat="image/jpeg"
-        className="rounded-lg shadow-lg mb-4"
-        width={300}
-      />
-      <button
-        onClick={captureAndScan}
-        className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
-      >
-        {loading ? "Scanning..." : "Capture and Scan"}
-      </button>
-      {extractedText && (
-        <div className="mt-4 bg-white p-4 rounded-lg shadow">
-          <p className="font-semibold">Extracted Text:</p>
-          <p>{extractedText}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-// Helper to convert base64 to Blob
-function base64ToBlob(base64Data) {
-  const byteCharacters = atob(base64Data.split(',')[1]);
-  const byteNumbers = new Array(byteCharacters.length);
-  for (let i = 0; i < byteCharacters.length; i++) {
-    byteNumbers[i] = byteCharacters.charCodeAt(i);
+export async function uploadImageAndExtractText(base64Image) {
+  try {
+    const response = await axios.post(`${BASE_URL}/upload/`, {
+      imageUrl: base64Image,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("API error:", error);
+    throw error;
   }
-  const byteArray = new Uint8Array(byteNumbers);
-  return new Blob([byteArray], { type: 'image/jpeg' });
 }
