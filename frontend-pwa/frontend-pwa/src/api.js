@@ -1,26 +1,48 @@
-import axios from 'axios';
+import React, { useState, useRef } from "react";
+import Webcam from "react-webcam";
+import { uploadImageAndExtractText } from "./api";
 
-// ⚡ Correct backend URL
-const BASE_URL = "https://dog-food-backend.onrender.com";
+export default function CameraScanner() {
+  const webcamRef = useRef(null);
+  const [extractedText, setExtractedText] = useState("");
+  const [loading, setLoading] = useState(false);
 
-// ⚡ Updated function to send real image (binary) as FormData
-export async function uploadImageAndExtractText(base64Image) {
-  try {
-    const formData = new FormData();
-    formData.append("file", base64ToBlob(base64Image), "snapshot.jpg");
+  const captureAndScan = async () => {
+    const imageSrc = webcamRef.current.getScreenshot();
+    setLoading(true);
+    try {
+      const result = await uploadImageAndExtractText(imageSrc);
+      setExtractedText(result.extracted_texts.productName || "No text found");
+    } catch (error) {
+      console.error("Error extracting text:", error);
+    }
+    setLoading(false);
+  };
 
-    const response = await axios.post(`${BASE_URL}/upload/`, formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
-
-    return response.data;
-  } catch (error) {
-    console.error("API error:", error);
-    throw error;
-  }
+  return (
+    <div className="flex flex-col items-center">
+      <Webcam
+        ref={webcamRef}
+        screenshotFormat="image/jpeg"
+        className="rounded-lg shadow-lg mb-4"
+        width={300}
+      />
+      <button
+        onClick={captureAndScan}
+        className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+      >
+        {loading ? "Scanning..." : "Capture and Scan"}
+      </button>
+      {extractedText && (
+        <div className="mt-4 bg-white p-4 rounded-lg shadow">
+          <p className="font-semibold">Extracted Text:</p>
+          <p>{extractedText}</p>
+        </div>
+      )}
+    </div>
+  );
 }
+
 
 // Helper to convert base64 to Blob
 function base64ToBlob(base64Data) {
