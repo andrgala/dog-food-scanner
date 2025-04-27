@@ -1,7 +1,7 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import base64
+import requests
 import os
 import json
 import firebase_admin
@@ -36,17 +36,19 @@ def initialize_services():
 
     return db, vision_client
 
+# Startup
 @app.on_event("startup")
 async def startup_event():
     global db, vision_client
     db, vision_client = initialize_services()
     print("✅ Services initialized")
 
+# Shutdown
 @app.on_event("shutdown")
 async def shutdown_event():
     print("🛑 Shutting down...")
 
-# CORS settings
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -55,10 +57,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Pydantic models
-class ImageUrlRequest(BaseModel):
-    imageUrl: str
-
+# Pydantic Models
 class ProductData(BaseModel):
     productName: str
     brandName: str = ""
@@ -68,19 +67,13 @@ class ProductData(BaseModel):
 # Routes
 @app.get("/")
 async def root():
-    return {"message": "API is live"}
+    return {"message": "API is live 🚀"}
 
+# Upload image file for OCR
 @app.post("/upload/")
-async def upload_image_base64(data: ImageUrlRequest):
+async def upload_image_file(file: UploadFile = File(...)):
     try:
-        base64_image = data.imageUrl
-
-        if base64_image.startswith("data:image"):
-            header, base64_data = base64_image.split(',', 1)
-            content = base64.b64decode(base64_data)
-        else:
-            raise HTTPException(status_code=400, detail="Invalid image format.")
-
+        content = await file.read()
         full_text = extract_text_from_image(content, vision_client)
 
         extracted_texts = {
@@ -93,9 +86,10 @@ async def upload_image_base64(data: ImageUrlRequest):
         return {"extracted_texts": extracted_texts}
 
     except Exception as e:
-        print("Error in upload_image_base64:", str(e))
+        print("Error in upload_image_file:", str(e))
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+# Add a product to Firestore
 @app.post("/add-product/")
 async def add_product(data: dict):
     try:
@@ -105,6 +99,7 @@ async def add_product(data: dict):
         print("Error saving product:", str(e))
         raise HTTPException(status_code=500, detail="Failed to save product")
 
+# Search products
 @app.get("/search-products/")
 async def search_products_endpoint(query: str):
     try:
