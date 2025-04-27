@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import requests
@@ -9,18 +9,21 @@ from firebase_admin import credentials, firestore
 from google.cloud import vision
 from google.oauth2 import service_account
 
+from firestore_helper import save_product, search_products
+from vision_helper import extract_text_from_image
+
 app = FastAPI()
 
-# Global variables for db and vision client
+# Global Firestore and Vision clients
 db = None
 vision_client = None
 
-# ✅ Helper to initialize services
+# Initialize Firestore and Vision
 def initialize_services():
     firebase_creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
     if not firebase_creds_json:
         raise Exception("Missing GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable.")
-    
+
     creds_dict = json.loads(firebase_creds_json)
     cred = credentials.Certificate(creds_dict)
 
@@ -28,25 +31,22 @@ def initialize_services():
         firebase_admin.initialize_app(cred)
 
     db = firestore.client()
-    
     vision_credentials = service_account.Credentials.from_service_account_info(creds_dict)
     vision_client = vision.ImageAnnotatorClient(credentials=vision_credentials)
 
     return db, vision_client
 
-# ✅ FastAPI Startup Event
 @app.on_event("startup")
 async def startup_event():
     global db, vision_client
     db, vision_client = initialize_services()
     print("✅ Services initialized")
 
-# ✅ FastAPI Shutdown Event
 @app.on_event("shutdown")
 async def shutdown_event():
-    print("🛑 Shutting down... (nothing to clean manually)")
+    print("🛑 Shutting down...")
 
-# ✅ Add CORS
+# CORS settings
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -55,7 +55,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ Define Pydantic Models
+# Pydantic models
 class ImageUrlRequest(BaseModel):
     imageUrl: str
 
@@ -65,38 +65,28 @@ class ProductData(BaseModel):
     ingredients: str = ""
     feedingGuidelines: str = ""
 
-# ✅ Routes
+# Routes
 @app.get("/")
 async def root():
     return {"message": "API is live"}
 
-# ✅ Upload: Accept a public image URL, download it, send to OCR
 @app.post("/upload/")
 async def upload_image_url(data: ImageUrlRequest):
     try:
         image_url = data.imageUrl
         response = requests.get(image_url)
-
         if response.status_code != 200:
-            raise HTTPException(status_code=400, detail="Failed to download image from provided URL.")
+            raise HTTPException(status_code=400, detail="Failed to download image.")
 
         content = response.content
-
-        image = vision.Image(content=content)
-        response = vision_client.text_detection(image=image)
-        texts = response.text_annotations
+        full_text = extract_text_from_image(content, vision_client)
 
         extracted_texts = {
             "brandName": "",
-            "productName": "",
+            "productName": full_text.strip(),
             "ingredients": "",
             "feedingGuidelines": ""
         }
-
-        if texts:
-            full_text = texts[0].description
-            print("Full OCR Text:", full_text)
-            extracted_texts["productName"] = full_text.strip()
 
         return {"extracted_texts": extracted_texts}
 
@@ -104,24 +94,19 @@ async def upload_image_url(data: ImageUrlRequest):
         print("Error in upload_image_url:", str(e))
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-# ✅ Add new product to Firestore
 @app.post("/add-product/")
 async def add_product(data: dict):
     try:
-        db.collection('dog_food_products').add(data)
+        save_product(data, db)
         return {"message": "Product saved successfully"}
     except Exception as e:
         print("Error saving product:", str(e))
         raise HTTPException(status_code=500, detail="Failed to save product")
 
-# ✅ Search products in Firestore
 @app.get("/search-products/")
-async def search_products(query: str):
+async def search_products_endpoint(query: str):
     try:
-        products_ref = db.collection('dog_food_products')
-        query_ref = products_ref.where('productName', '>=', query).where('productName', '<=', query + '\uf8ff')
-        results = query_ref.stream()
-        products = [{"id": doc.id, **doc.to_dict()} for doc in results]
+        products = search_products(query, db)
         return {"products": products}
     except Exception as e:
         print("Error searching products:", str(e))
