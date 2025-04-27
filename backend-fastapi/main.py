@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import requests
+import base64
 import os
 import json
 import firebase_admin
@@ -71,14 +71,16 @@ async def root():
     return {"message": "API is live"}
 
 @app.post("/upload/")
-async def upload_image_url(data: ImageUrlRequest):
+async def upload_image_base64(data: ImageUrlRequest):
     try:
-        image_url = data.imageUrl
-        response = requests.get(image_url)
-        if response.status_code != 200:
-            raise HTTPException(status_code=400, detail="Failed to download image.")
+        base64_image = data.imageUrl
 
-        content = response.content
+        if base64_image.startswith("data:image"):
+            header, base64_data = base64_image.split(',', 1)
+            content = base64.b64decode(base64_data)
+        else:
+            raise HTTPException(status_code=400, detail="Invalid image format.")
+
         full_text = extract_text_from_image(content, vision_client)
 
         extracted_texts = {
@@ -91,7 +93,7 @@ async def upload_image_url(data: ImageUrlRequest):
         return {"extracted_texts": extracted_texts}
 
     except Exception as e:
-        print("Error in upload_image_url:", str(e))
+        print("Error in upload_image_base64:", str(e))
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @app.post("/add-product/")
