@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi import UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import base64
@@ -71,10 +72,9 @@ async def root():
     return {"message": "API is live"}
 
 @app.post("/upload/")
-async def upload_image(data: Base64ImageRequest):
+async def upload_image(file: UploadFile = File(...)):
     try:
-        base64_str = data.base64Image
-        content = base64.b64decode(base64_str.split(",")[-1])  # Remove "data:image/jpeg;base64," part if exists
+        content = await file.read()
 
         full_text = extract_text_from_image(content, vision_client)
 
