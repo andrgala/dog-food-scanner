@@ -18,7 +18,6 @@ app = FastAPI()
 db = None
 vision_client = None
 
-# Initialize Firestore and Vision
 def initialize_services():
     firebase_creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
     if not firebase_creds_json:
@@ -36,19 +35,17 @@ def initialize_services():
 
     return db, vision_client
 
-# Startup event
 @app.on_event("startup")
 async def startup_event():
     global db, vision_client
     db, vision_client = initialize_services()
     print("✅ Services initialized")
 
-# Shutdown event
 @app.on_event("shutdown")
 async def shutdown_event():
     print("🛑 Shutting down...")
 
-# CORS middleware
+# CORS settings
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -64,18 +61,16 @@ class ProductData(BaseModel):
     ingredients: str = ""
     feedingGuidelines: str = ""
 
-# Root endpoint
 @app.get("/")
 async def root():
     return {"message": "API is live"}
 
-# Upload image (now correctly accepting UploadFile)
 @app.post("/upload/")
-async def upload_image(file: UploadFile = File(...)):
+async def upload_image_file(file: UploadFile = File(...)):
     try:
-        content = await file.read()
+        contents = await file.read()
 
-        full_text = extract_text_from_image(content, vision_client)
+        full_text = extract_text_from_image(contents, vision_client)
 
         extracted_texts = {
             "brandName": "",
@@ -87,10 +82,9 @@ async def upload_image(file: UploadFile = File(...)):
         return {"extracted_texts": extracted_texts}
 
     except Exception as e:
-        print("Error in upload_image:", str(e))
+        print("Error in upload_image_file:", str(e))
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-# Add product
 @app.post("/add-product/")
 async def add_product(data: dict):
     try:
@@ -100,7 +94,6 @@ async def add_product(data: dict):
         print("Error saving product:", str(e))
         raise HTTPException(status_code=500, detail="Failed to save product")
 
-# Search products
 @app.get("/search-products/")
 async def search_products_endpoint(query: str):
     try:
