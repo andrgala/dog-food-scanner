@@ -8,7 +8,7 @@ export default function CameraScanner() {
 
   const flipCamera = () => {
     setFacingMode(prev => (prev === "user" ? "environment" : "user"));
-    setKey(prev => prev + 1); // Force re-render
+    setKey(prev => prev + 1);
   };
 
   const videoConstraints = {
