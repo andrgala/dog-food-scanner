@@ -30,7 +30,7 @@ export default function CameraScanner() {
 
   const getVideoConstraints = () => {
     if (facingMode === "environment") {
-      return { facingMode: { exact: "environment" } };
+      return { facingMode: { ideal: "environment" } };
     } else {
       return { facingMode: "user" };
     }
