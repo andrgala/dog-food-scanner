@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import { uploadImageAndExtractText } from './api';
 
@@ -28,8 +28,12 @@ export default function CameraScanner() {
     setKey(prev => prev + 1);
   };
 
-  const videoConstraints = {
-    facingMode: { exact: facingMode }
+  const getVideoConstraints = () => {
+    if (facingMode === "environment") {
+      return { facingMode: { exact: "environment" } };
+    } else {
+      return { facingMode: "user" };
+    }
   };
 
   return (
@@ -41,7 +45,7 @@ export default function CameraScanner() {
         audio={false}
         ref={webcamRef}
         screenshotFormat="image/jpeg"
-        videoConstraints={videoConstraints}
+        videoConstraints={getVideoConstraints()}
         className="rounded-lg shadow-md"
       />
 
