@@ -1,6 +1,7 @@
+// src/api.js
 import axios from "axios";
 
-const BASE_URL = "https://dog-food-scanner.onrender.com/;
+const BASE_URL = "https://dog-food-scanner.onrender.com";
 
 export async function uploadImageAndExtractText(base64Image) {
   const blob = await fetch(base64Image).then(res => res.blob());
