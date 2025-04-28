@@ -21,6 +21,11 @@ export default function CameraScanner() {
     setLoading(false);
   };
 
+  // Define video constraints to use the back camera
+  const videoConstraints = {
+    facingMode: { exact: "environment" }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
       <h1 className="text-2xl font-bold mb-4">Dog Food Scanner</h1>
@@ -28,6 +33,7 @@ export default function CameraScanner() {
         audio={false}
         ref={webcamRef}
         screenshotFormat="image/jpeg"
+        videoConstraints={videoConstraints}
         className="rounded-lg shadow-md"
       />
       <button
