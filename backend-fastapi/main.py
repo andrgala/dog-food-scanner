@@ -1,8 +1,7 @@
-from fastapi import FastAPI, HTTPException
-from fastapi import UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import base64
+import requests
 import os
 import json
 import firebase_admin
@@ -37,17 +36,19 @@ def initialize_services():
 
     return db, vision_client
 
+# Startup event
 @app.on_event("startup")
 async def startup_event():
     global db, vision_client
     db, vision_client = initialize_services()
     print("✅ Services initialized")
 
+# Shutdown event
 @app.on_event("shutdown")
 async def shutdown_event():
     print("🛑 Shutting down...")
 
-# CORS settings
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -57,20 +58,18 @@ app.add_middleware(
 )
 
 # Pydantic models
-class Base64ImageRequest(BaseModel):
-    base64Image: str
-
 class ProductData(BaseModel):
     productName: str
     brandName: str = ""
     ingredients: str = ""
     feedingGuidelines: str = ""
 
-# Routes
+# Root endpoint
 @app.get("/")
 async def root():
     return {"message": "API is live"}
 
+# Upload image (now correctly accepting UploadFile)
 @app.post("/upload/")
 async def upload_image(file: UploadFile = File(...)):
     try:
@@ -91,6 +90,7 @@ async def upload_image(file: UploadFile = File(...)):
         print("Error in upload_image:", str(e))
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+# Add product
 @app.post("/add-product/")
 async def add_product(data: dict):
     try:
@@ -100,6 +100,7 @@ async def add_product(data: dict):
         print("Error saving product:", str(e))
         raise HTTPException(status_code=500, detail="Failed to save product")
 
+# Search products
 @app.get("/search-products/")
 async def search_products_endpoint(query: str):
     try:
