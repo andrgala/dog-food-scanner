@@ -1,7 +1,6 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import requests
 import os
 import json
 import firebase_admin
@@ -29,16 +28,18 @@ def initialize_services():
     if not firebase_admin._apps:
         firebase_admin.initialize_app(cred)
 
+    global db
     db = firestore.client()
+
     vision_credentials = service_account.Credentials.from_service_account_info(creds_dict)
+    global vision_client
     vision_client = vision.ImageAnnotatorClient(credentials=vision_credentials)
 
     return db, vision_client
 
 @app.on_event("startup")
 async def startup_event():
-    global db, vision_client
-    db, vision_client = initialize_services()
+    initialize_services()
     print("✅ Services initialized")
 
 @app.on_event("shutdown")
@@ -54,7 +55,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Pydantic models
 class ProductData(BaseModel):
     productName: str
     brandName: str = ""
@@ -66,20 +66,22 @@ async def root():
     return {"message": "API is live"}
 
 @app.post("/upload/")
-async def upload_image_file(file: UploadFile = File(...)):
+async def upload_image_file(
+    file: UploadFile = File(...),
+    type: str = Query("generic", description="Type of scan: 'generic' or 'feeding'")
+):
+    """
+    Upload an image and extract text. If type='feeding', returns structured table data.
+    """
     try:
         contents = await file.read()
 
-        full_text = extract_text_from_image(contents, vision_client)
-
-        extracted_texts = {
-            "brandName": "",
-            "productName": full_text.strip(),
-            "ingredients": "",
-            "feedingGuidelines": ""
-        }
-
-        return {"extracted_texts": extracted_texts}
+        if type == "feeding":
+            structured = extract_text_from_image(contents, vision_client, extract_feeding_table=True)
+            return {"extracted_texts": {"feedingGuidelines": structured}}
+        else:
+            full_text = extract_text_from_image(contents, vision_client)
+            return {"extracted_texts": {"productName": full_text.strip()}}
 
     except Exception as e:
         print("Error in upload_image_file:", str(e))
