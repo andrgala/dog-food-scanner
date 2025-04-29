@@ -1,4 +1,4 @@
-// Finalized GuidedScanner.jsx with full review/submit and confirmation control
+// Fixed GuidedScanner.jsx to prevent auto-skip on feeding guidelines
 import React, { useState, useRef } from 'react';
 import Webcam from 'react-webcam';
 import { uploadImageAndExtractText } from './api';
@@ -94,19 +94,15 @@ export default function GuidedScanner() {
       try {
         const response = await uploadImageAndExtractText(imageSrc, 'feeding');
         const rows = response?.extracted_texts?.feedingGuidelines || [];
-        if (!rows.length) {
-          alert("Could not detect a table. You can crop it manually.");
-        } else {
-          setScannedValues(prev => ({ ...prev, feedingGuidelines: rows }));
-          handleNextStep();
-        }
+        setScannedValues(prev => ({ ...prev, feedingGuidelines: rows }));
+        // DO NOT auto-advance — wait for user to confirm visually or skip
       } catch (err) {
         console.error("OCR Error (feeding):", err);
       } finally {
         setLoading(false);
       }
     } else if (step === 5) {
-      // Wait for user to confirm
+      // Product photo: wait for user to confirm image
     } else {
       setLoading(true);
       try {
@@ -125,6 +121,10 @@ export default function GuidedScanner() {
   const handleConfirm = () => {
     if (step < 5) {
       const field = keys[step];
+      if (step === 3) {
+        handleNextStep();
+        return;
+      }
       setScannedValues(prev => ({ ...prev, [field]: inputValue }));
       handleNextStep();
     }
@@ -199,7 +199,7 @@ export default function GuidedScanner() {
             </div>
           )}
 
-          {capturedImage && step < 5 && (
+          {capturedImage && step < 5 && step !== 3 && (
             <div className="w-full max-w-md mt-4">
               <label className="block mb-2 font-semibold">Detected Text (editable):</label>
               <textarea
@@ -209,16 +209,20 @@ export default function GuidedScanner() {
                 className="w-full p-2 border rounded"
               />
               <div className="flex flex-col gap-4 mt-4">
-                {step === 3 && (
-                  <button
-                    onClick={() => setManualCropMode(true)}
-                    className="bg-yellow-600 text-white text-lg py-2 px-4 rounded w-full"
-                  >
-                    OCR result unclear? Crop table manually
-                  </button>
-                )}
                 <button onClick={handleRetry} className="bg-gray-600 text-white text-lg py-2 px-4 rounded w-full">Retry</button>
                 <button onClick={handleConfirm} className="bg-green-600 text-white text-lg py-2 px-4 rounded w-full">Confirm</button>
+              </div>
+            </div>
+          )}
+
+          {capturedImage && step === 3 && (
+            <div className="w-full max-w-md mt-4">
+              <div className="flex flex-col gap-4">
+                <button onClick={() => setManualCropMode(true)} className="bg-yellow-600 text-white py-2 px-4 rounded w-full">
+                  OCR unclear? Crop table manually
+                </button>
+                <button onClick={handleRetry} className="bg-gray-600 text-white py-2 px-4 rounded w-full">Retry</button>
+                <button onClick={handleConfirm} className="bg-green-600 text-white py-2 px-4 rounded w-full">Confirm Table</button>
               </div>
             </div>
           )}
