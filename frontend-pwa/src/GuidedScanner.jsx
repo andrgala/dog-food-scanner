@@ -1,4 +1,4 @@
-// Updated GuidedScanner.jsx
+// Fixed and safe GuidedScanner.jsx
 import React, { useState, useRef } from 'react';
 import Webcam from 'react-webcam';
 import { uploadImageAndExtractText } from './api';
@@ -58,15 +58,26 @@ export default function GuidedScanner() {
     setInputValue('');
   };
 
-  const handleCropComplete = (croppedDataUrl) => {
-    setScannedValues(prev => ({ ...prev, feedingGuidelinesImage: croppedDataUrl, feedingGuidelines: [] }));
-    setManualCropMode(false);
-    handleNextStep();
+  const handleCropComplete = async (croppedDataUrl) => {
+    try {
+      setScannedValues(prev => ({
+        ...prev,
+        feedingGuidelinesImage: croppedDataUrl,
+        feedingGuidelines: []
+      }));
+      setManualCropMode(false);
+      handleNextStep();
+    } catch (err) {
+      console.error("Crop complete failed:", err);
+    }
   };
 
   const handleCapture = async () => {
     const imageSrc = webcamRef.current.getScreenshot();
-    if (!imageSrc) return;
+    if (!imageSrc) {
+      alert("Failed to capture image.");
+      return;
+    }
 
     setCapturedImage(imageSrc);
 
@@ -74,47 +85,43 @@ export default function GuidedScanner() {
       setLoading(true);
       try {
         const response = await uploadImageAndExtractText(imageSrc, 'feeding');
-        const rows = response.extracted_texts.feedingGuidelines || [];
-        setScannedValues(prev => ({ ...prev, feedingGuidelines: rows }));
-        setLoading(false);
-        handleNextStep();
+        const rows = response?.extracted_texts?.feedingGuidelines || [];
+
+        if (!rows.length) {
+          alert("Could not detect a table. You can crop it manually.");
+        } else {
+          setScannedValues(prev => ({ ...prev, feedingGuidelines: rows }));
+        }
       } catch (err) {
-        console.error("OCR Error:", err);
+        console.error("OCR Error (feeding):", err);
+      } finally {
         setLoading(false);
       }
     } else {
       setLoading(true);
       try {
         const response = await uploadImageAndExtractText(imageSrc);
-        const text = response.extracted_texts.productName || '';
+        const text = response?.extracted_texts?.productName || '';
         setInputValue(text);
       } catch (err) {
         console.error("OCR Error:", err);
+        alert("OCR failed. Try again.");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
   };
 
-  const updateFeedingCell = (index, field, value) => {
-    const updated = [...scannedValues.feedingGuidelines];
-    updated[index][field] = value;
-    setScannedValues(prev => ({ ...prev, feedingGuidelines: updated }));
-  };
-
-  const addFeedingRow = () => {
-    setScannedValues(prev => ({
-      ...prev,
-      feedingGuidelines: [...prev.feedingGuidelines, { weight: '', amount: '', notes: '' }]
-    }));
-  };
-
-  const removeFeedingRow = index => {
-    const updated = scannedValues.feedingGuidelines.filter((_, i) => i !== index);
-    setScannedValues(prev => ({ ...prev, feedingGuidelines: updated }));
+  const handleConfirm = () => {
+    if (step < 5) {
+      const field = keys[step];
+      setScannedValues(prev => ({ ...prev, [field]: inputValue }));
+      handleNextStep();
+    }
   };
 
   return (
-    <div className="flex flex-col items-center bg-gray-100 p-2 pt-1">
+    <div className="flex flex-col items-center bg-gray-100 p-2 pt-1 min-h-screen">
       <h1 className="text-xl font-bold mb-1 text-center mt-2">{steps[step]}</h1>
       <p className="text-sm text-gray-600 mb-2">Step {step + 1} of 7</p>
 
@@ -153,50 +160,32 @@ export default function GuidedScanner() {
             </div>
           )}
 
-          {capturedImage && step === 3 && (
-            <div className="flex flex-col gap-4 w-full mt-4">
-              <button onClick={() => setManualCropMode(true)} className="bg-yellow-600 text-white text-lg py-2 px-4 rounded w-full">
-                OCR result unclear? Crop table manually
-              </button>
-              <button onClick={handleRetry} className="bg-gray-600 text-white text-lg py-2 px-4 rounded w-full">
-                Retry Capture
-              </button>
+          {capturedImage && step < 5 && (
+            <div className="w-full max-w-md mt-4">
+              <label className="block mb-2 font-semibold">Detected Text (editable):</label>
+              <textarea
+                value={inputValue}
+                onChange={e => setInputValue(e.target.value)}
+                rows={4}
+                className="w-full p-2 border rounded"
+              />
+              <div className="flex flex-col gap-4 mt-4">
+                {step === 3 && (
+                  <button
+                    onClick={() => setManualCropMode(true)}
+                    className="bg-yellow-600 text-white text-lg py-2 px-4 rounded w-full"
+                  >
+                    OCR result unclear? Crop table manually
+                  </button>
+                )}
+                <button onClick={handleRetry} className="bg-gray-600 text-white text-lg py-2 px-4 rounded w-full">Retry</button>
+                <button onClick={handleConfirm} className="bg-green-600 text-white text-lg py-2 px-4 rounded w-full">Confirm</button>
+              </div>
             </div>
           )}
         </>
       ) : (
-        <div className="w-full max-w-md overflow-x-auto">
-          <label className="block font-semibold mb-1">Feeding Guidelines (table):</label>
-          <table className="min-w-full text-sm border border-gray-300">
-            <thead className="bg-gray-200">
-              <tr>
-                <th className="border px-2 py-1">Weight</th>
-                <th className="border px-2 py-1">Amount</th>
-                <th className="border px-2 py-1">Notes</th>
-                <th className="border px-2 py-1">Remove</th>
-              </tr>
-            </thead>
-            <tbody>
-              {scannedValues.feedingGuidelines.map((row, idx) => (
-                <tr key={idx}>
-                  <td className="border px-2 py-1">
-                    <input value={row.weight} onChange={e => updateFeedingCell(idx, 'weight', e.target.value)} className="w-full p-1 border rounded" />
-                  </td>
-                  <td className="border px-2 py-1">
-                    <input value={row.amount} onChange={e => updateFeedingCell(idx, 'amount', e.target.value)} className="w-full p-1 border rounded" />
-                  </td>
-                  <td className="border px-2 py-1">
-                    <input value={row.notes} onChange={e => updateFeedingCell(idx, 'notes', e.target.value)} className="w-full p-1 border rounded" />
-                  </td>
-                  <td className="border px-2 py-1 text-center">
-                    <button onClick={() => removeFeedingRow(idx)} className="text-red-600 font-bold">✕</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <button onClick={addFeedingRow} className="mt-2 text-blue-600 font-semibold underline">+ Add Row</button>
-        </div>
+        <p>Review and submit screen goes here.</p>
       )}
     </div>
   );
