@@ -4,23 +4,51 @@ import { uploadImageAndExtractText } from './api';
 
 export default function GuidedScanner() {
   const webcamRef = useRef(null);
-
-  const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState(0);
   const [capturedImage, setCapturedImage] = useState(null);
+  const [inputValue, setInputValue] = useState('');
+  const [scannedValues, setScannedValues] = useState({
+    brandName: '',
+    productName: '',
+    ingredients: '',
+    feedingGuidelines: '',
+    barcodeText: '',
+    productImage: ''
+  });
+  const [productType, setProductType] = useState('Food');
+  const [foodForm, setFoodForm] = useState('Kibble');
+  const [loading, setLoading] = useState(false);
 
-  const [brandName, setBrandName] = useState("");
-  const [productName, setProductName] = useState("");
-  const [ingredients, setIngredients] = useState("");
-  const [feedingGuidelines, setFeedingGuidelines] = useState("");
-  const [barcodeText, setBarcodeText] = useState("");
-  const [productImage, setProductImage] = useState("");
+  const steps = [
+    'Scan the brand name',
+    'Scan the product name',
+    'Scan the ingredients list',
+    'Scan the feeding guidelines',
+    'Scan the barcode text',
+    'Take a picture of the product'
+  ];
 
-  const [productType, setProductType] = useState("Food");
-  const [foodForm, setFoodForm] = useState("Kibble");
+  const keys = [
+    'brandName',
+    'productName',
+    'ingredients',
+    'feedingGuidelines',
+    'barcodeText'
+  ];
 
   const videoConstraints = {
-    facingMode: { ideal: "environment" }
+    facingMode: { ideal: 'environment' }
+  };
+
+  const handleNextStep = () => {
+    setCapturedImage(null);
+    setInputValue('');
+    setStep(prev => prev + 1);
+  };
+
+  const handleRetry = () => {
+    setCapturedImage(null);
+    setInputValue('');
   };
 
   const handleCapture = async () => {
@@ -29,58 +57,35 @@ export default function GuidedScanner() {
 
     setCapturedImage(imageSrc);
 
-    if (step < 6) {
+    if (step < 5) {
       setLoading(true);
       try {
         const response = await uploadImageAndExtractText(imageSrc);
-        const text = response.extracted_texts.productName;
-        switch (step) {
-          case 1:
-            setBrandName(text);
-            break;
-          case 2:
-            setProductName(text);
-            break;
-          case 3:
-            setIngredients(text);
-            break;
-          case 4:
-            setFeedingGuidelines(text);
-            break;
-          case 5:
-            setBarcodeText(text);
-            break;
-          default:
-            break;
-        }
+        const text = response.extracted_texts.productName || '';
+        setInputValue(text);
       } catch (err) {
         console.error("OCR Error:", err);
+        setInputValue('');
       }
       setLoading(false);
     } else {
-      // Step 6: Take final photo, no OCR
-      setProductImage(imageSrc);
+      setScannedValues(prev => ({ ...prev, productImage: imageSrc }));
     }
   };
 
   const handleConfirm = () => {
-    setCapturedImage(null);
-    if (step < 6) {
-      setStep(step + 1);
+    if (step < 5) {
+      const field = keys[step];
+      setScannedValues(prev => ({ ...prev, [field]: inputValue }));
     }
+    handleNextStep();
   };
 
   const handleSubmit = async () => {
     const data = {
-      brandName,
-      productName,
-      ingredients,
-      feedingGuidelines,
-      barcodeText,
+      ...scannedValues,
       productType,
-      foodForm,
-      productImage
-      // userEmail, userName will be added later
+      foodForm
     };
 
     try {
@@ -96,28 +101,11 @@ export default function GuidedScanner() {
     }
   };
 
-  const stepLabels = [
-    "Scan Brand",
-    "Scan Product Name",
-    "Scan Ingredients",
-    "Scan Feeding Guidelines",
-    "Scan Barcode",
-    "Take Product Photo"
-  ];
-
-  const stepValues = [
-    brandName,
-    productName,
-    ingredients,
-    feedingGuidelines,
-    barcodeText
-  ];
-
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      <h1 className="text-2xl font-bold mb-4">{stepLabels[step - 1]}</h1>
+      <h1 className="text-2xl font-bold mb-4">{steps[step]}</h1>
 
-      {!capturedImage ? (
+      {step < 6 && !capturedImage && (
         <Webcam
           audio={false}
           ref={webcamRef}
@@ -125,38 +113,41 @@ export default function GuidedScanner() {
           videoConstraints={videoConstraints}
           className="rounded-lg shadow-md"
         />
-      ) : (
-        <img src={capturedImage} alt="Captured" className="rounded-lg shadow-md max-w-md" />
       )}
 
-      <div className="flex gap-4 mt-4">
-        {!capturedImage && (
-          <button
-            onClick={handleCapture}
-            className="bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700"
-          >
-            {loading ? "Scanning..." : "Capture"}
-          </button>
-        )}
+      {step < 6 && !capturedImage && (
+        <button
+          onClick={handleCapture}
+          className="mt-4 bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700"
+        >
+          {loading ? "Scanning..." : "Capture"}
+        </button>
+      )}
 
-        {capturedImage && step < 6 && (
-          <button
-            onClick={handleConfirm}
-            className="bg-green-600 text-white font-bold py-2 px-4 rounded hover:bg-green-700"
-          >
-            Confirm
-          </button>
-        )}
-      </div>
-
-      {step < 6 && capturedImage && (
-        <div className="mt-4 bg-white p-4 rounded shadow max-w-md">
-          <p className="font-semibold">Detected:</p>
-          <p>{stepValues[step - 1]}</p>
+      {capturedImage && step < 5 && (
+        <div className="w-full max-w-md mt-4">
+          <label className="block mb-2 font-semibold">Detected Text (editable):</label>
+          <input
+            type="text"
+            value={inputValue}
+            onChange={e => setInputValue(e.target.value)}
+            className="w-full p-2 border rounded"
+          />
+          <div className="flex gap-4 mt-4">
+            <button onClick={handleRetry} className="bg-gray-500 text-white px-4 py-2 rounded">Retry</button>
+            <button onClick={handleConfirm} className="bg-green-600 text-white px-4 py-2 rounded">Confirm</button>
+          </div>
         </div>
       )}
 
-      {step === 6 && capturedImage && (
+      {step === 5 && capturedImage && (
+        <div className="mt-4">
+          <img src={capturedImage} alt="Captured" className="rounded-lg shadow-md max-w-md" />
+          <button onClick={handleConfirm} className="mt-4 bg-green-600 text-white px-6 py-2 rounded">Confirm Photo</button>
+        </div>
+      )}
+
+      {step === 6 && (
         <div className="mt-6 w-full max-w-md">
           <h2 className="font-bold mb-2">Product Metadata</h2>
           <label className="block mb-2">
