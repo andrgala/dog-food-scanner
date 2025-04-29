@@ -21,12 +21,12 @@ export default function GuidedScanner() {
   const [submitted, setSubmitted] = useState(false);
 
   const steps = [
-    'Scan the brand name',
-    'Scan the product name',
-    'Scan the ingredients list',
-    'Scan the feeding guidelines',
-    'Scan the barcode text',
-    'Take a picture of the product',
+    'Capture Brand',
+    'Capture Product Name',
+    'Capture Ingredients',
+    'Capture Feeding Guidelines',
+    'Capture Barcode',
+    'Take Product Photo',
     'Review and Submit'
   ];
 
@@ -129,13 +129,14 @@ export default function GuidedScanner() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      <h1 className="text-2xl font-bold mb-4">{steps[step]}</h1>
+    <div className="flex flex-col items-center justify-start min-h-screen bg-gray-100 p-2">
+      <h1 className="text-xl font-bold mb-1 text-center">{steps[step]}</h1>
+      <p className="text-sm text-gray-600 mb-2">Step {step + 1} of 7</p>
 
       {submitted ? (
         <div className="text-center">
           <p className="text-green-600 font-semibold mb-4">✅ Product submitted successfully!</p>
-          <button onClick={handleReset} className="bg-blue-600 text-white px-4 py-2 rounded">Scan Another Product</button>
+          <button onClick={handleReset} className="bg-blue-600 text-white text-lg w-full px-6 py-3 rounded">Scan Another Product</button>
         </div>
       ) : step < 6 ? (
         <>
@@ -151,17 +152,17 @@ export default function GuidedScanner() {
           )}
 
           {!capturedImage && (
-            <div className="flex gap-4 mt-4">
+            <div className="flex flex-col gap-4 w-full mt-4">
               <button
                 onClick={handleCapture}
-                className="bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700"
+                className="bg-blue-600 text-white text-lg font-bold py-3 rounded w-full"
               >
                 {loading ? "Scanning..." : "Capture"}
               </button>
               {step < 5 && (
                 <button
                   onClick={handleSkip}
-                  className="bg-yellow-500 text-white font-bold py-2 px-6 rounded hover:bg-yellow-600"
+                  className="bg-yellow-500 text-white text-lg font-bold py-3 rounded w-full"
                 >
                   Skip
                 </button>
@@ -178,17 +179,17 @@ export default function GuidedScanner() {
                 rows={4}
                 className="w-full p-2 border rounded"
               />
-              <div className="flex gap-4 mt-4">
-                <button onClick={handleRetry} className="bg-gray-500 text-white px-4 py-2 rounded">Retry</button>
-                <button onClick={handleConfirm} className="bg-green-600 text-white px-4 py-2 rounded">Confirm</button>
+              <div className="flex flex-col gap-4 mt-4">
+                <button onClick={handleRetry} className="bg-gray-500 text-white text-lg px-6 py-3 rounded w-full">Retry</button>
+                <button onClick={handleConfirm} className="bg-green-600 text-white text-lg px-6 py-3 rounded w-full">Confirm</button>
               </div>
             </div>
           )}
 
           {step === 5 && capturedImage && (
-            <div className="mt-4">
+            <div className="mt-4 w-full">
               <img src={capturedImage} alt="Captured" className="rounded-lg shadow-md max-w-full" />
-              <button onClick={handleNextStep} className="mt-4 bg-green-600 text-white px-6 py-2 rounded">Confirm Photo</button>
+              <button onClick={handleNextStep} className="mt-4 bg-green-600 text-white text-lg px-6 py-3 rounded w-full">Confirm Photo</button>
             </div>
           )}
         </>
@@ -210,6 +211,8 @@ export default function GuidedScanner() {
           <select value={productType} onChange={e => setProductType(e.target.value)} className="w-full p-2 border rounded">
             <option value="Food">Food</option>
             <option value="Treat">Treat</option>
+            <option value="Supplement">Supplement</option>
+            <option value="Other">Other</option>
           </select>
 
           <label className="block font-semibold mt-4">Form:</label>
@@ -217,11 +220,12 @@ export default function GuidedScanner() {
             <option value="Kibble">Kibble</option>
             <option value="Wet">Wet</option>
             <option value="Raw">Raw</option>
+            <option value="Other">Other</option>
           </select>
 
           <button
             onClick={handleSubmit}
-            className="mt-6 bg-purple-600 text-white font-bold py-2 px-4 rounded hover:bg-purple-700 w-full"
+            className="mt-6 bg-purple-600 text-white text-lg font-bold py-3 rounded hover:bg-purple-700 w-full"
           >
             Submit Product
           </button>
