@@ -2,6 +2,7 @@
 import React, { useState, useRef } from 'react';
 import Webcam from 'react-webcam';
 import { uploadImageAndExtractText } from './api';
+import ManualTableCropper from './ManualTableCropper';
 
 export default function GuidedScanner() {
   const webcamRef = useRef(null);
@@ -13,6 +14,7 @@ export default function GuidedScanner() {
     productName: '',
     ingredients: '',
     feedingGuidelines: [],
+    feedingGuidelinesImage: '',
     barcodeText: '',
     productImage: ''
   });
@@ -20,6 +22,7 @@ export default function GuidedScanner() {
   const [foodForm, setFoodForm] = useState('Kibble');
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [manualCropMode, setManualCropMode] = useState(false);
 
   const steps = [
     'Capture Brand',
@@ -46,12 +49,19 @@ export default function GuidedScanner() {
   const handleNextStep = () => {
     setCapturedImage(null);
     setInputValue('');
+    setManualCropMode(false);
     setStep(prev => prev + 1);
   };
 
   const handleRetry = () => {
     setCapturedImage(null);
     setInputValue('');
+  };
+
+  const handleCropComplete = (croppedDataUrl) => {
+    setScannedValues(prev => ({ ...prev, feedingGuidelinesImage: croppedDataUrl, feedingGuidelines: [] }));
+    setManualCropMode(false);
+    handleNextStep();
   };
 
   const handleCapture = async () => {
@@ -108,7 +118,53 @@ export default function GuidedScanner() {
       <h1 className="text-xl font-bold mb-1 text-center mt-2">{steps[step]}</h1>
       <p className="text-sm text-gray-600 mb-2">Step {step + 1} of 7</p>
 
-      {step === 6 && (
+      {manualCropMode ? (
+        <ManualTableCropper
+          imageSrc={capturedImage}
+          onCropComplete={handleCropComplete}
+          onCancel={() => setManualCropMode(false)}
+        />
+      ) : submitted ? (
+        <div className="text-center">
+          <p className="text-green-600 font-semibold mb-4">✅ Product submitted successfully!</p>
+          <button onClick={() => window.location.reload()} className="bg-blue-600 text-white text-lg w-full px-6 py-3 rounded">Scan Another Product</button>
+        </div>
+      ) : step < 6 ? (
+        <>
+          {!capturedImage && (
+            <Webcam
+              audio={false}
+              ref={webcamRef}
+              screenshotFormat="image/jpeg"
+              videoConstraints={videoConstraints}
+              className="rounded-lg shadow-md"
+              style={{ maxHeight: '50vh', width: '100%', objectFit: 'cover' }}
+            />
+          )}
+
+          {!capturedImage && (
+            <div className="flex flex-col gap-4 w-full mt-4">
+              <button
+                onClick={handleCapture}
+                className="bg-blue-600 text-white text-lg font-bold py-3 rounded w-full"
+              >
+                {loading ? "Scanning..." : "Capture"}
+              </button>
+            </div>
+          )}
+
+          {capturedImage && step === 3 && (
+            <div className="flex flex-col gap-4 w-full mt-4">
+              <button onClick={() => setManualCropMode(true)} className="bg-yellow-600 text-white text-lg py-2 px-4 rounded w-full">
+                OCR result unclear? Crop table manually
+              </button>
+              <button onClick={handleRetry} className="bg-gray-600 text-white text-lg py-2 px-4 rounded w-full">
+                Retry Capture
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
         <div className="w-full max-w-md overflow-x-auto">
           <label className="block font-semibold mb-1">Feeding Guidelines (table):</label>
           <table className="min-w-full text-sm border border-gray-300">
