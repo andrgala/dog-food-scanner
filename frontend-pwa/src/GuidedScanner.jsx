@@ -1,4 +1,4 @@
-// Fixed and safe GuidedScanner.jsx
+// Fixed GuidedScanner.jsx with product photo confirm and skip button restored
 import React, { useState, useRef } from 'react';
 import Webcam from 'react-webcam';
 import { uploadImageAndExtractText } from './api';
@@ -58,6 +58,14 @@ export default function GuidedScanner() {
     setInputValue('');
   };
 
+  const handleSkip = () => {
+    if (step < 5) {
+      const field = keys[step];
+      setScannedValues(prev => ({ ...prev, [field]: '' }));
+    }
+    handleNextStep();
+  };
+
   const handleCropComplete = async (croppedDataUrl) => {
     try {
       setScannedValues(prev => ({
@@ -91,12 +99,16 @@ export default function GuidedScanner() {
           alert("Could not detect a table. You can crop it manually.");
         } else {
           setScannedValues(prev => ({ ...prev, feedingGuidelines: rows }));
+          handleNextStep();
         }
       } catch (err) {
         console.error("OCR Error (feeding):", err);
       } finally {
         setLoading(false);
       }
+    } else if (step === 5) {
+      // Product image capture step
+      return; // wait for confirmation button click
     } else {
       setLoading(true);
       try {
@@ -157,6 +169,14 @@ export default function GuidedScanner() {
               >
                 {loading ? "Scanning..." : "Capture"}
               </button>
+              {step < 5 && (
+                <button
+                  onClick={handleSkip}
+                  className="bg-yellow-500 text-white text-lg font-bold py-3 rounded w-full"
+                >
+                  Skip
+                </button>
+              )}
             </div>
           )}
 
@@ -181,6 +201,18 @@ export default function GuidedScanner() {
                 <button onClick={handleRetry} className="bg-gray-600 text-white text-lg py-2 px-4 rounded w-full">Retry</button>
                 <button onClick={handleConfirm} className="bg-green-600 text-white text-lg py-2 px-4 rounded w-full">Confirm</button>
               </div>
+            </div>
+          )}
+
+          {capturedImage && step === 5 && (
+            <div className="mt-4 w-full">
+              <img src={capturedImage} alt="Captured" className="rounded-lg shadow-md max-w-full" />
+              <button onClick={() => {
+                setScannedValues(prev => ({ ...prev, productImage: capturedImage }));
+                handleNextStep();
+              }} className="mt-4 bg-green-600 text-white text-lg px-6 py-3 rounded w-full">
+                Confirm Photo
+              </button>
             </div>
           )}
         </>
