@@ -11,7 +11,7 @@ export default function GuidedScanner() {
     brandName: '',
     productName: '',
     ingredients: '',
-    feedingGuidelines: '',
+    feedingGuidelines: [],
     barcodeText: '',
     productImage: ''
   });
@@ -56,7 +56,7 @@ export default function GuidedScanner() {
   const handleSkip = () => {
     if (step < 5) {
       const field = keys[step];
-      setScannedValues(prev => ({ ...prev, [field]: '' }));
+      setScannedValues(prev => ({ ...prev, [field]: step === 3 ? [] : '' }));
     }
     handleNextStep();
   };
@@ -72,7 +72,21 @@ export default function GuidedScanner() {
       try {
         const response = await uploadImageAndExtractText(imageSrc);
         const text = response.extracted_texts.productName || '';
-        setInputValue(text);
+        if (step === 3) {
+          const lines = text.split('\n');
+          const structured = lines.map(line => {
+            const [weight, amount, ...notes] = line.split(/\s+/);
+            return {
+              weight: weight || '',
+              amount: amount || '',
+              notes: notes.join(' ') || ''
+            };
+          });
+          setScannedValues(prev => ({ ...prev, feedingGuidelines: structured }));
+          handleNextStep();
+        } else {
+          setInputValue(text);
+        }
       } catch (err) {
         console.error("OCR Error:", err);
         setInputValue('');
@@ -118,7 +132,7 @@ export default function GuidedScanner() {
       brandName: '',
       productName: '',
       ingredients: '',
-      feedingGuidelines: '',
+      feedingGuidelines: [],
       barcodeText: '',
       productImage: ''
     });
@@ -128,9 +142,27 @@ export default function GuidedScanner() {
     setSubmitted(false);
   };
 
+  const updateFeedingCell = (index, field, value) => {
+    const updated = [...scannedValues.feedingGuidelines];
+    updated[index][field] = value;
+    setScannedValues(prev => ({ ...prev, feedingGuidelines: updated }));
+  };
+
+  const addFeedingRow = () => {
+    setScannedValues(prev => ({
+      ...prev,
+      feedingGuidelines: [...prev.feedingGuidelines, { weight: '', amount: '', notes: '' }]
+    }));
+  };
+
+  const removeFeedingRow = index => {
+    const updated = scannedValues.feedingGuidelines.filter((_, i) => i !== index);
+    setScannedValues(prev => ({ ...prev, feedingGuidelines: updated }));
+  };
+
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen bg-gray-100 p-2">
-      <h1 className="text-xl font-bold mb-1 text-center">{steps[step]}</h1>
+    <div className="flex flex-col items-center bg-gray-100 p-2 pt-1">
+      <h1 className="text-xl font-bold mb-1 text-center mt-2">{steps[step]}</h1>
       <p className="text-sm text-gray-600 mb-2">Step {step + 1} of 7</p>
 
       {submitted ? (
@@ -170,7 +202,7 @@ export default function GuidedScanner() {
             </div>
           )}
 
-          {capturedImage && step < 5 && (
+          {capturedImage && step < 5 && step !== 3 && (
             <div className="w-full max-w-md mt-4">
               <label className="block mb-2 font-semibold">Detected Text (editable):</label>
               <textarea
@@ -195,17 +227,50 @@ export default function GuidedScanner() {
         </>
       ) : (
         <div className="w-full max-w-md space-y-4">
-          {keys.map((key, index) => (
+          {keys.slice(0, 3).concat(keys.slice(4)).map((key, index) => (
             <div key={index}>
               <label className="block font-semibold capitalize mb-1">{key.replace(/([A-Z])/g, ' $1')}:</label>
               <textarea
                 value={scannedValues[key]}
                 onChange={e => setScannedValues(prev => ({ ...prev, [key]: e.target.value }))}
-                rows={key === 'feedingGuidelines' ? 6 : 2}
+                rows={2}
                 className="w-full p-2 border rounded"
               />
             </div>
           ))}
+
+          <div>
+            <label className="block font-semibold mb-1">Feeding Guidelines (editable table):</label>
+            <table className="w-full text-sm border border-gray-300">
+              <thead className="bg-gray-200">
+                <tr>
+                  <th className="border px-2 py-1">Weight</th>
+                  <th className="border px-2 py-1">Amount</th>
+                  <th className="border px-2 py-1">Notes</th>
+                  <th className="border px-2 py-1">Remove</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scannedValues.feedingGuidelines.map((row, idx) => (
+                  <tr key={idx}>
+                    <td className="border px-2 py-1">
+                      <input value={row.weight} onChange={e => updateFeedingCell(idx, 'weight', e.target.value)} className="w-full p-1 border rounded" />
+                    </td>
+                    <td className="border px-2 py-1">
+                      <input value={row.amount} onChange={e => updateFeedingCell(idx, 'amount', e.target.value)} className="w-full p-1 border rounded" />
+                    </td>
+                    <td className="border px-2 py-1">
+                      <input value={row.notes} onChange={e => updateFeedingCell(idx, 'notes', e.target.value)} className="w-full p-1 border rounded" />
+                    </td>
+                    <td className="border px-2 py-1 text-center">
+                      <button onClick={() => removeFeedingRow(idx)} className="text-red-600 font-bold">✕</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <button onClick={addFeedingRow} className="mt-2 text-blue-600 font-semibold underline">+ Add Row</button>
+          </div>
 
           <label className="block font-semibold mt-4">Type:</label>
           <select value={productType} onChange={e => setProductType(e.target.value)} className="w-full p-2 border rounded">
