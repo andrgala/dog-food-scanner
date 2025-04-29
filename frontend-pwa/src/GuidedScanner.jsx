@@ -18,6 +18,7 @@ export default function GuidedScanner() {
   const [productType, setProductType] = useState('Food');
   const [foodForm, setFoodForm] = useState('Kibble');
   const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   const steps = [
     'Scan the brand name',
@@ -25,7 +26,8 @@ export default function GuidedScanner() {
     'Scan the ingredients list',
     'Scan the feeding guidelines',
     'Scan the barcode text',
-    'Take a picture of the product'
+    'Take a picture of the product',
+    'Review and Submit'
   ];
 
   const keys = [
@@ -68,8 +70,9 @@ export default function GuidedScanner() {
         setInputValue('');
       }
       setLoading(false);
-    } else {
+    } else if (step === 5) {
       setScannedValues(prev => ({ ...prev, productImage: imageSrc }));
+      handleNextStep();
     }
   };
 
@@ -77,8 +80,8 @@ export default function GuidedScanner() {
     if (step < 5) {
       const field = keys[step];
       setScannedValues(prev => ({ ...prev, [field]: inputValue }));
+      handleNextStep();
     }
-    handleNextStep();
   };
 
   const handleSubmit = async () => {
@@ -89,85 +92,120 @@ export default function GuidedScanner() {
     };
 
     try {
-      const res = await fetch('https://your-backend-url/add-product/', {
+      const res = await fetch('https://dog-food-scanner.onrender.com/add-product/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       const json = await res.json();
       console.log("✅ Product submitted:", json);
+      setSubmitted(true);
     } catch (err) {
       console.error("Submit Error:", err);
     }
+  };
+
+  const handleReset = () => {
+    setScannedValues({
+      brandName: '',
+      productName: '',
+      ingredients: '',
+      feedingGuidelines: '',
+      barcodeText: '',
+      productImage: ''
+    });
+    setProductType('Food');
+    setFoodForm('Kibble');
+    setStep(0);
+    setSubmitted(false);
   };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
       <h1 className="text-2xl font-bold mb-4">{steps[step]}</h1>
 
-      {step < 6 && !capturedImage && (
-        <Webcam
-          audio={false}
-          ref={webcamRef}
-          screenshotFormat="image/jpeg"
-          videoConstraints={videoConstraints}
-          className="rounded-lg shadow-md"
-        />
-      )}
-
-      {step < 6 && !capturedImage && (
-        <button
-          onClick={handleCapture}
-          className="mt-4 bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700"
-        >
-          {loading ? "Scanning..." : "Capture"}
-        </button>
-      )}
-
-      {capturedImage && step < 5 && (
-        <div className="w-full max-w-md mt-4">
-          <label className="block mb-2 font-semibold">Detected Text (editable):</label>
-          <input
-            type="text"
-            value={inputValue}
-            onChange={e => setInputValue(e.target.value)}
-            className="w-full p-2 border rounded"
-          />
-          <div className="flex gap-4 mt-4">
-            <button onClick={handleRetry} className="bg-gray-500 text-white px-4 py-2 rounded">Retry</button>
-            <button onClick={handleConfirm} className="bg-green-600 text-white px-4 py-2 rounded">Confirm</button>
-          </div>
+      {submitted ? (
+        <div className="text-center">
+          <p className="text-green-600 font-semibold mb-4">✅ Product submitted successfully!</p>
+          <button onClick={handleReset} className="bg-blue-600 text-white px-4 py-2 rounded">Scan Another Product</button>
         </div>
-      )}
+      ) : step < 6 ? (
+        <>
+          {!capturedImage && (
+            <Webcam
+              audio={false}
+              ref={webcamRef}
+              screenshotFormat="image/jpeg"
+              videoConstraints={videoConstraints}
+              className="rounded-lg shadow-md"
+            />
+          )}
 
-      {step === 5 && capturedImage && (
-        <div className="mt-4">
-          <img src={capturedImage} alt="Captured" className="rounded-lg shadow-md max-w-md" />
-          <button onClick={handleConfirm} className="mt-4 bg-green-600 text-white px-6 py-2 rounded">Confirm Photo</button>
-        </div>
-      )}
+          {!capturedImage && (
+            <button
+              onClick={handleCapture}
+              className="mt-4 bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700"
+            >
+              {loading ? "Scanning..." : "Capture"}
+            </button>
+          )}
 
-      {step === 6 && (
-        <div className="mt-6 w-full max-w-md">
-          <h2 className="font-bold mb-2">Product Metadata</h2>
-          <label className="block mb-2">
-            Type:
-            <select value={productType} onChange={e => setProductType(e.target.value)} className="w-full mt-1 p-2 border rounded">
-              <option value="Food">Food</option>
-              <option value="Treat">Treat</option>
-            </select>
-          </label>
-          <label className="block mb-4">
-            Form:
-            <select value={foodForm} onChange={e => setFoodForm(e.target.value)} className="w-full mt-1 p-2 border rounded">
-              <option value="Kibble">Kibble</option>
-              <option value="Wet">Wet</option>
-              <option value="Raw">Raw</option>
-            </select>
-          </label>
+          {capturedImage && step < 5 && (
+            <div className="w-full max-w-md mt-4">
+              <label className="block mb-2 font-semibold">Detected Text (editable):</label>
+              <textarea
+                value={inputValue}
+                onChange={e => setInputValue(e.target.value)}
+                rows={4}
+                className="w-full p-2 border rounded"
+              />
+              <div className="flex gap-4 mt-4">
+                <button onClick={handleRetry} className="bg-gray-500 text-white px-4 py-2 rounded">Retry</button>
+                <button onClick={handleConfirm} className="bg-green-600 text-white px-4 py-2 rounded">Confirm</button>
+              </div>
+            </div>
+          )}
+
+          {step === 5 && capturedImage && (
+            <div className="mt-4">
+              <img src={capturedImage} alt="Captured" className="rounded-lg shadow-md max-w-md" />
+              <button onClick={handleNextStep} className="mt-4 bg-green-600 text-white px-6 py-2 rounded">Confirm Photo</button>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="w-full max-w-md space-y-4">
+          {keys.map((key, index) => (
+            <div key={index}>
+              <label className="block font-semibold capitalize mb-1">{key.replace(/([A-Z])/g, ' $1')}:</label>
+              <textarea
+                value={scannedValues[key]}
+                onChange={e => setScannedValues(prev => ({ ...prev, [key]: e.target.value }))}
+                rows={key === 'feedingGuidelines' ? 6 : 2}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+          ))}
+
+          <label className="block font-semibold mt-4">Type:</label>
+          <select value={productType} onChange={e => setProductType(e.target.value)} className="w-full p-2 border rounded">
+            <option value="Food">Food</option>
+            <option value="Treat">Treat</option>
+            <option value="Other">Other</option>
+          </select>
+
+          <label className="block font-semibold mt-4">Form:</label>
+          <select value={foodForm} onChange={e => setFoodForm(e.target.value)} className="w-full p-2 border rounded">
+            <option value="Kibble">Kibble</option>
+            <option value="Wet">Wet</option>
+            <option value="Raw">Raw</option>
+            <option value="Supplement">Supplement</option>
+            <option value="Other">Other</option>
+          </select>
+
           <button
             onClick={handleSubmit}
-            className="bg-purple-600 text-white font-bold py-2 px-4 rounded hover:bg-purple-700 w-full"
+            className="mt-6 bg-purple-600 text-white font-bold py-2 px-4 rounded hover:bg-purple-700 w-full"
           >
             Submit Product
           </button>
