@@ -1,104 +1,187 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import requests
-import os
-import json
-import firebase_admin
-from firebase_admin import credentials, firestore
-from google.cloud import vision
-from google.oauth2 import service_account
+import React, { useState, useRef } from 'react';
+import Webcam from 'react-webcam';
+import { uploadImageAndExtractText } from './api';
 
-from firestore_helper import save_product, search_products
-from vision_helper import extract_text_from_image
+export default function GuidedScanner() {
+  const webcamRef = useRef(null);
 
-app = FastAPI()
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [capturedImage, setCapturedImage] = useState(null);
 
-# Global Firestore and Vision clients
-db = None
-vision_client = None
+  const [brandName, setBrandName] = useState("");
+  const [productName, setProductName] = useState("");
+  const [ingredients, setIngredients] = useState("");
+  const [feedingGuidelines, setFeedingGuidelines] = useState("");
+  const [barcodeText, setBarcodeText] = useState("");
+  const [productImage, setProductImage] = useState("");
 
-def initialize_services():
-    firebase_creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
-    if not firebase_creds_json:
-        raise Exception("Missing GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable.")
+  const [productType, setProductType] = useState("Food");
+  const [foodForm, setFoodForm] = useState("Kibble");
 
-    creds_dict = json.loads(firebase_creds_json)
-    cred = credentials.Certificate(creds_dict)
+  const videoConstraints = {
+    facingMode: { ideal: "environment" }
+  };
 
-    if not firebase_admin._apps:
-        firebase_admin.initialize_app(cred)
+  const handleCapture = async () => {
+    const imageSrc = webcamRef.current.getScreenshot();
+    if (!imageSrc) return;
 
-    db = firestore.client()
-    vision_credentials = service_account.Credentials.from_service_account_info(creds_dict)
-    vision_client = vision.ImageAnnotatorClient(credentials=vision_credentials)
+    setCapturedImage(imageSrc);
 
-    return db, vision_client
-
-@app.on_event("startup")
-async def startup_event():
-    global db, vision_client
-    db, vision_client = initialize_services()
-    print("✅ Services initialized")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    print("🛑 Shutting down...")
-
-# CORS settings
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Pydantic models
-class ProductData(BaseModel):
-    productName: str
-    brandName: str = ""
-    ingredients: str = ""
-    feedingGuidelines: str = ""
-
-@app.get("/")
-async def root():
-    return {"message": "API is live"}
-
-@app.post("/upload/")
-async def upload_image_file(file: UploadFile = File(...)):
-    try:
-        contents = await file.read()
-
-        full_text = extract_text_from_image(contents, vision_client)
-
-        extracted_texts = {
-            "brandName": "",
-            "productName": full_text.strip(),
-            "ingredients": "",
-            "feedingGuidelines": ""
+    if (step < 6) {
+      setLoading(true);
+      try {
+        const response = await uploadImageAndExtractText(imageSrc);
+        const text = response.extracted_texts.productName;
+        switch (step) {
+          case 1:
+            setBrandName(text);
+            break;
+          case 2:
+            setProductName(text);
+            break;
+          case 3:
+            setIngredients(text);
+            break;
+          case 4:
+            setFeedingGuidelines(text);
+            break;
+          case 5:
+            setBarcodeText(text);
+            break;
+          default:
+            break;
         }
+      } catch (err) {
+        console.error("OCR Error:", err);
+      }
+      setLoading(false);
+    } else {
+      // Step 6: Take final photo, no OCR
+      setProductImage(imageSrc);
+    }
+  };
 
-        return {"extracted_texts": extracted_texts}
+  const handleConfirm = () => {
+    setCapturedImage(null);
+    if (step < 6) {
+      setStep(step + 1);
+    }
+  };
 
-    except Exception as e:
-        print("Error in upload_image_file:", str(e))
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+  const handleSubmit = async () => {
+    const data = {
+      brandName,
+      productName,
+      ingredients,
+      feedingGuidelines,
+      barcodeText,
+      productType,
+      foodForm,
+      productImage
+      // userEmail, userName will be added later
+    };
 
-@app.post("/add-product/")
-async def add_product(data: dict):
-    try:
-        save_product(data, db)
-        return {"message": "Product saved successfully"}
-    except Exception as e:
-        print("Error saving product:", str(e))
-        raise HTTPException(status_code=500, detail="Failed to save product")
+    try {
+      const res = await fetch('https://your-backend-url/add-product/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      console.log("✅ Product submitted:", json);
+    } catch (err) {
+      console.error("Submit Error:", err);
+    }
+  };
 
-@app.get("/search-products/")
-async def search_products_endpoint(query: str):
-    try:
-        products = search_products(query, db)
-        return {"products": products}
-    except Exception as e:
-        print("Error searching products:", str(e))
-        raise HTTPException(status_code=500, detail="Failed to search products")
+  const stepLabels = [
+    "Scan Brand",
+    "Scan Product Name",
+    "Scan Ingredients",
+    "Scan Feeding Guidelines",
+    "Scan Barcode",
+    "Take Product Photo"
+  ];
+
+  const stepValues = [
+    brandName,
+    productName,
+    ingredients,
+    feedingGuidelines,
+    barcodeText
+  ];
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+      <h1 className="text-2xl font-bold mb-4">{stepLabels[step - 1]}</h1>
+
+      {!capturedImage ? (
+        <Webcam
+          audio={false}
+          ref={webcamRef}
+          screenshotFormat="image/jpeg"
+          videoConstraints={videoConstraints}
+          className="rounded-lg shadow-md"
+        />
+      ) : (
+        <img src={capturedImage} alt="Captured" className="rounded-lg shadow-md max-w-md" />
+      )}
+
+      <div className="flex gap-4 mt-4">
+        {!capturedImage && (
+          <button
+            onClick={handleCapture}
+            className="bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700"
+          >
+            {loading ? "Scanning..." : "Capture"}
+          </button>
+        )}
+
+        {capturedImage && step < 6 && (
+          <button
+            onClick={handleConfirm}
+            className="bg-green-600 text-white font-bold py-2 px-4 rounded hover:bg-green-700"
+          >
+            Confirm
+          </button>
+        )}
+      </div>
+
+      {step < 6 && capturedImage && (
+        <div className="mt-4 bg-white p-4 rounded shadow max-w-md">
+          <p className="font-semibold">Detected:</p>
+          <p>{stepValues[step - 1]}</p>
+        </div>
+      )}
+
+      {step === 6 && capturedImage && (
+        <div className="mt-6 w-full max-w-md">
+          <h2 className="font-bold mb-2">Product Metadata</h2>
+          <label className="block mb-2">
+            Type:
+            <select value={productType} onChange={e => setProductType(e.target.value)} className="w-full mt-1 p-2 border rounded">
+              <option value="Food">Food</option>
+              <option value="Treat">Treat</option>
+            </select>
+          </label>
+          <label className="block mb-4">
+            Form:
+            <select value={foodForm} onChange={e => setFoodForm(e.target.value)} className="w-full mt-1 p-2 border rounded">
+              <option value="Kibble">Kibble</option>
+              <option value="Wet">Wet</option>
+              <option value="Raw">Raw</option>
+            </select>
+          </label>
+          <button
+            onClick={handleSubmit}
+            className="bg-purple-600 text-white font-bold py-2 px-4 rounded hover:bg-purple-700 w-full"
+          >
+            Submit Product
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
