@@ -53,6 +53,14 @@ export default function GuidedScanner() {
     setInputValue('');
   };
 
+  const handleSkip = () => {
+    if (step < 5) {
+      const field = keys[step];
+      setScannedValues(prev => ({ ...prev, [field]: '' }));
+    }
+    handleNextStep();
+  };
+
   const handleCapture = async () => {
     const imageSrc = webcamRef.current.getScreenshot();
     if (!imageSrc) return;
@@ -138,16 +146,27 @@ export default function GuidedScanner() {
               screenshotFormat="image/jpeg"
               videoConstraints={videoConstraints}
               className="rounded-lg shadow-md"
+              style={{ maxHeight: '50vh', width: '100%', objectFit: 'cover' }}
             />
           )}
 
           {!capturedImage && (
-            <button
-              onClick={handleCapture}
-              className="mt-4 bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700"
-            >
-              {loading ? "Scanning..." : "Capture"}
-            </button>
+            <div className="flex gap-4 mt-4">
+              <button
+                onClick={handleCapture}
+                className="bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700"
+              >
+                {loading ? "Scanning..." : "Capture"}
+              </button>
+              {step < 5 && (
+                <button
+                  onClick={handleSkip}
+                  className="bg-yellow-500 text-white font-bold py-2 px-6 rounded hover:bg-yellow-600"
+                >
+                  Skip
+                </button>
+              )}
+            </div>
           )}
 
           {capturedImage && step < 5 && (
@@ -168,7 +187,7 @@ export default function GuidedScanner() {
 
           {step === 5 && capturedImage && (
             <div className="mt-4">
-              <img src={capturedImage} alt="Captured" className="rounded-lg shadow-md max-w-md" />
+              <img src={capturedImage} alt="Captured" className="rounded-lg shadow-md max-w-full" />
               <button onClick={handleNextStep} className="mt-4 bg-green-600 text-white px-6 py-2 rounded">Confirm Photo</button>
             </div>
           )}
@@ -191,7 +210,6 @@ export default function GuidedScanner() {
           <select value={productType} onChange={e => setProductType(e.target.value)} className="w-full p-2 border rounded">
             <option value="Food">Food</option>
             <option value="Treat">Treat</option>
-            <option value="Other">Other</option>
           </select>
 
           <label className="block font-semibold mt-4">Form:</label>
@@ -199,8 +217,6 @@ export default function GuidedScanner() {
             <option value="Kibble">Kibble</option>
             <option value="Wet">Wet</option>
             <option value="Raw">Raw</option>
-            <option value="Supplement">Supplement</option>
-            <option value="Other">Other</option>
           </select>
 
           <button
