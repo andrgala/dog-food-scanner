@@ -1,4 +1,4 @@
-// Final GuidedScanner.jsx with image preview on review
+// Final GuidedScanner.jsx: exclusive display for feeding table OR OCR data
 import React, { useState, useRef } from 'react';
 import Webcam from 'react-webcam';
 import { uploadImageAndExtractText } from './api';
@@ -38,8 +38,7 @@ export default function GuidedScanner() {
     'brandName',
     'productName',
     'ingredients',
-    'feedingGuidelines',
-    'barcodeText'
+    'barcodeText' // NOTE: feedingGuidelines handled separately
   ];
 
   const videoConstraints = {
@@ -166,99 +165,7 @@ export default function GuidedScanner() {
           <p className="text-green-600 font-semibold mb-4">✅ Product submitted successfully!</p>
           <button onClick={() => window.location.reload()} className="bg-blue-600 text-white text-lg w-full px-6 py-3 rounded">Scan Another Product</button>
         </div>
-      ) : step < 6 ? (
-        <>
-          {!capturedImage && (
-            <Webcam
-              audio={false}
-              ref={webcamRef}
-              screenshotFormat="image/jpeg"
-              videoConstraints={videoConstraints}
-              className="rounded-lg shadow-md"
-              style={{ maxHeight: '50vh', width: '100%', objectFit: 'cover' }}
-            />
-          )}
-
-          {!capturedImage && (
-            <div className="flex flex-col gap-4 w-full mt-4">
-              <button
-                onClick={handleCapture}
-                className="bg-blue-600 text-white text-lg font-bold py-3 rounded w-full"
-              >
-                {loading ? "Scanning..." : "Capture"}
-              </button>
-              {step < 5 && (
-                <button
-                  onClick={handleSkip}
-                  className="bg-yellow-500 text-white text-lg font-bold py-3 rounded w-full"
-                >
-                  Skip
-                </button>
-              )}
-            </div>
-          )}
-
-          {capturedImage && step === 3 && (
-            <div className="w-full max-w-md mt-4 space-y-4">
-              {scannedValues.feedingGuidelines.length > 0 && (
-                <div className="overflow-x-auto border rounded">
-                  <table className="min-w-full text-sm text-left">
-                    <thead className="bg-gray-200 text-gray-700">
-                      <tr>
-                        <th className="px-3 py-2 border">Weight</th>
-                        <th className="px-3 py-2 border">Amount</th>
-                        <th className="px-3 py-2 border">Notes</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {scannedValues.feedingGuidelines.map((row, idx) => (
-                        <tr key={idx} className="bg-white border-t">
-                          <td className="px-3 py-1 border">{row.weight}</td>
-                          <td className="px-3 py-1 border">{row.amount}</td>
-                          <td className="px-3 py-1 border">{row.notes}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              <button onClick={() => setManualCropMode(true)} className="bg-yellow-600 text-white py-2 px-4 rounded w-full">
-                OCR unclear? Crop table manually
-              </button>
-              <button onClick={handleRetry} className="bg-gray-600 text-white py-2 px-4 rounded w-full">Retry</button>
-              <button onClick={handleConfirm} className="bg-green-600 text-white py-2 px-4 rounded w-full">Confirm Table</button>
-            </div>
-          )}
-
-          {capturedImage && step < 5 && step !== 3 && (
-            <div className="w-full max-w-md mt-4">
-              <label className="block mb-2 font-semibold">Detected Text (editable):</label>
-              <textarea
-                value={inputValue}
-                onChange={e => setInputValue(e.target.value)}
-                rows={4}
-                className="w-full p-2 border rounded"
-              />
-              <div className="flex flex-col gap-4 mt-4">
-                <button onClick={handleRetry} className="bg-gray-600 text-white text-lg py-2 px-4 rounded w-full">Retry</button>
-                <button onClick={handleConfirm} className="bg-green-600 text-white text-lg py-2 px-4 rounded w-full">Confirm</button>
-              </div>
-            </div>
-          )}
-
-          {capturedImage && step === 5 && (
-            <div className="mt-4 w-full">
-              <img src={capturedImage} alt="Captured" className="rounded-lg shadow-md max-w-full" />
-              <button onClick={() => {
-                setScannedValues(prev => ({ ...prev, productImage: capturedImage }));
-                handleNextStep();
-              }} className="mt-4 bg-green-600 text-white text-lg px-6 py-3 rounded w-full">
-                Confirm Photo
-              </button>
-            </div>
-          )}
-        </>
-      ) : (
+      ) : step === 6 ? (
         <div className="w-full max-w-md space-y-4">
           {keys.map((key, index) => (
             <div key={index}>
@@ -266,23 +173,33 @@ export default function GuidedScanner() {
               <textarea
                 value={typeof scannedValues[key] === 'string' ? scannedValues[key] : JSON.stringify(scannedValues[key])}
                 onChange={e => setScannedValues(prev => ({ ...prev, [key]: e.target.value }))}
-                rows={key === 'feedingGuidelines' ? 6 : 2}
+                rows={2}
                 className="w-full p-2 border rounded"
               />
             </div>
           ))}
 
+          {scannedValues.feedingGuidelinesImage ? (
+            <div>
+              <label className="block font-semibold mb-1">Cropped Feeding Table:</label>
+              <img src={scannedValues.feedingGuidelinesImage} alt="Feeding Table" className="rounded-lg shadow-md max-w-full" />
+            </div>
+          ) : scannedValues.feedingGuidelines.length > 0 && (
+            <div>
+              <label className="block font-semibold mb-1">Feeding Guidelines (OCR):</label>
+              <textarea
+                value={JSON.stringify(scannedValues.feedingGuidelines)}
+                readOnly
+                rows={6}
+                className="w-full p-2 border rounded bg-gray-50"
+              />
+            </div>
+          )}
+
           {scannedValues.productImage && (
             <div>
               <label className="block font-semibold mb-1">Product Photo:</label>
               <img src={scannedValues.productImage} alt="Product" className="rounded-lg shadow-md max-w-full" />
-            </div>
-          )}
-
-          {scannedValues.feedingGuidelinesImage && (
-            <div>
-              <label className="block font-semibold mb-1">Cropped Feeding Table:</label>
-              <img src={scannedValues.feedingGuidelinesImage} alt="Feeding Table" className="rounded-lg shadow-md max-w-full" />
             </div>
           )}
 
@@ -309,7 +226,7 @@ export default function GuidedScanner() {
             Submit Product
           </button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
