@@ -1,6 +1,16 @@
 {
+  "name": "dog-food-scanner",
+  "version": "1.0.1",
+  "description": "Scanner app for dog food and treats",
+  "main": "index.js",
+  "scripts": {
+    "release": "standard-version"
+  },
   "dependencies": {
     "firebase": "^11.6.1",
     "vite": "^6.3.3"
+  },
+  "devDependencies": {
+    "standard-version": "^9.5.0"
   }
 }
