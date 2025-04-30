@@ -1,4 +1,4 @@
-// Fixed GuidedScanner.jsx to show feeding guidelines table after capture
+// Final GuidedScanner.jsx with image preview on review
 import React, { useState, useRef } from 'react';
 import Webcam from 'react-webcam';
 import { uploadImageAndExtractText } from './api';
@@ -101,7 +101,7 @@ export default function GuidedScanner() {
         setLoading(false);
       }
     } else if (step === 5) {
-      // Product photo: wait for user to confirm image
+      // wait for confirm
     } else {
       setLoading(true);
       try {
@@ -271,6 +271,20 @@ export default function GuidedScanner() {
               />
             </div>
           ))}
+
+          {scannedValues.productImage && (
+            <div>
+              <label className="block font-semibold mb-1">Product Photo:</label>
+              <img src={scannedValues.productImage} alt="Product" className="rounded-lg shadow-md max-w-full" />
+            </div>
+          )}
+
+          {scannedValues.feedingGuidelinesImage && (
+            <div>
+              <label className="block font-semibold mb-1">Cropped Feeding Table:</label>
+              <img src={scannedValues.feedingGuidelinesImage} alt="Feeding Table" className="rounded-lg shadow-md max-w-full" />
+            </div>
+          )}
 
           <label className="block font-semibold mt-4">Type:</label>
           <select value={productType} onChange={e => setProductType(e.target.value)} className="w-full p-2 border rounded">
