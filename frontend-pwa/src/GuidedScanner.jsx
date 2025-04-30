@@ -1,4 +1,4 @@
-// Fixed GuidedScanner.jsx to prevent auto-skip on feeding guidelines
+// Fixed GuidedScanner.jsx to show feeding guidelines table after capture
 import React, { useState, useRef } from 'react';
 import Webcam from 'react-webcam';
 import { uploadImageAndExtractText } from './api';
@@ -95,7 +95,6 @@ export default function GuidedScanner() {
         const response = await uploadImageAndExtractText(imageSrc, 'feeding');
         const rows = response?.extracted_texts?.feedingGuidelines || [];
         setScannedValues(prev => ({ ...prev, feedingGuidelines: rows }));
-        // DO NOT auto-advance — wait for user to confirm visually or skip
       } catch (err) {
         console.error("OCR Error (feeding):", err);
       } finally {
@@ -199,6 +198,38 @@ export default function GuidedScanner() {
             </div>
           )}
 
+          {capturedImage && step === 3 && (
+            <div className="w-full max-w-md mt-4 space-y-4">
+              {scannedValues.feedingGuidelines.length > 0 && (
+                <div className="overflow-x-auto border rounded">
+                  <table className="min-w-full text-sm text-left">
+                    <thead className="bg-gray-200 text-gray-700">
+                      <tr>
+                        <th className="px-3 py-2 border">Weight</th>
+                        <th className="px-3 py-2 border">Amount</th>
+                        <th className="px-3 py-2 border">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {scannedValues.feedingGuidelines.map((row, idx) => (
+                        <tr key={idx} className="bg-white border-t">
+                          <td className="px-3 py-1 border">{row.weight}</td>
+                          <td className="px-3 py-1 border">{row.amount}</td>
+                          <td className="px-3 py-1 border">{row.notes}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <button onClick={() => setManualCropMode(true)} className="bg-yellow-600 text-white py-2 px-4 rounded w-full">
+                OCR unclear? Crop table manually
+              </button>
+              <button onClick={handleRetry} className="bg-gray-600 text-white py-2 px-4 rounded w-full">Retry</button>
+              <button onClick={handleConfirm} className="bg-green-600 text-white py-2 px-4 rounded w-full">Confirm Table</button>
+            </div>
+          )}
+
           {capturedImage && step < 5 && step !== 3 && (
             <div className="w-full max-w-md mt-4">
               <label className="block mb-2 font-semibold">Detected Text (editable):</label>
@@ -211,18 +242,6 @@ export default function GuidedScanner() {
               <div className="flex flex-col gap-4 mt-4">
                 <button onClick={handleRetry} className="bg-gray-600 text-white text-lg py-2 px-4 rounded w-full">Retry</button>
                 <button onClick={handleConfirm} className="bg-green-600 text-white text-lg py-2 px-4 rounded w-full">Confirm</button>
-              </div>
-            </div>
-          )}
-
-          {capturedImage && step === 3 && (
-            <div className="w-full max-w-md mt-4">
-              <div className="flex flex-col gap-4">
-                <button onClick={() => setManualCropMode(true)} className="bg-yellow-600 text-white py-2 px-4 rounded w-full">
-                  OCR unclear? Crop table manually
-                </button>
-                <button onClick={handleRetry} className="bg-gray-600 text-white py-2 px-4 rounded w-full">Retry</button>
-                <button onClick={handleConfirm} className="bg-green-600 text-white py-2 px-4 rounded w-full">Confirm Table</button>
               </div>
             </div>
           )}
